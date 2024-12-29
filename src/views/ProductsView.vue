@@ -1,10 +1,21 @@
 <template>
   <div class="products-container">
-    <h1>Products View</h1>
-
-    <router-link v-if="authStore.isAdmin" to="/products/new" class="add-button">
-      Add New Product
-    </router-link>
+    <div class="header-actions">
+      <h1>Products View</h1>
+      <div class="action-buttons">
+        <router-link v-if="authStore.isAdmin" to="/products/new" class="add-button">
+          Add New Product
+        </router-link>
+        <button
+          v-if="authStore.isAdmin"
+          @click="handleDownloadPdf"
+          class="download-button"
+          :disabled="isDownloading"
+        >
+          {{ isDownloading ? 'Downloading...' : 'Download Product Data' }}
+        </button>
+      </div>
+    </div>
 
     <div class="products-grid">
       <div v-for="product in products" :key="product.id" class="product-card">
@@ -14,7 +25,6 @@
         <p>Category: {{ Category[Number(product.categoryId)] }}</p>
         <p>Brand: {{ Brand[Number(product.brandId)] }}</p>
         <p>Stock: {{ product.stockQuantity }}</p>
-
         <div v-if="authStore.isAdmin" class="admin-actions">
           <router-link :to="`/products/${product.id}/edit`" class="edit-button"> Edit </router-link>
           <button @click="handleDelete(product.id!)" class="delete-button">Delete</button>
@@ -36,6 +46,7 @@ const authStore = useAuthStore()
 const products = ref<Product[]>([])
 const Brand = BrandEnum.Brand
 const Category = CategoryEnum.Category
+const isDownloading = ref(false)
 
 const loadProducts = async () => {
   try {
@@ -49,12 +60,25 @@ const handleDelete = async (id: number) => {
   if (!confirm('Are you sure you want to delete this product?')) {
     return
   }
-
   try {
     await productService.deleteProduct(id)
     await loadProducts()
   } catch (error) {
     console.error('Error deleting product:', error)
+  }
+}
+
+const handleDownloadPdf = async () => {
+  if (!authStore.isAdmin) return
+
+  try {
+    isDownloading.value = true
+    await productService.downloadProductsPdf()
+  } catch (error) {
+    console.error('Error downloading PDF:', error)
+    alert('Failed to download PDF. Please try again.')
+  } finally {
+    isDownloading.value = false
   }
 }
 
@@ -64,7 +88,19 @@ onMounted(loadProducts)
 <style scoped>
 .products-container {
   padding: 20px;
-  background-color: #1e1e1e; /* Dark background */
+  background-color: #1e1e1e;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
 }
 
 .products-grid {
@@ -75,10 +111,10 @@ onMounted(loadProducts)
 }
 
 .product-card {
-  border: 1px solid #424242; /* Darker border */
+  border: 1px solid #424242;
   padding: 15px;
   border-radius: 8px;
-  background-color: #2a2a2a; /* Dark background for card */
+  background-color: #2a2a2a;
 }
 
 .price {
@@ -94,7 +130,8 @@ onMounted(loadProducts)
 }
 
 .add-button,
-.edit-button {
+.edit-button,
+.download-button {
   background-color: #3f51b5;
   color: white;
   padding: 10px 20px;
@@ -102,6 +139,21 @@ onMounted(loadProducts)
   text-decoration: none;
   display: inline-block;
   transition: background-color 0.3s;
+  border: none;
+  cursor: pointer;
+}
+
+.download-button {
+  background-color: #4caf50;
+}
+
+.download-button:hover {
+  background-color: #388e3c;
+}
+
+.download-button:disabled {
+  background-color: #757575;
+  cursor: not-allowed;
 }
 
 .add-button:hover,
@@ -116,13 +168,11 @@ onMounted(loadProducts)
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.3s;
+  border: none;
 }
 
 .delete-button:hover {
   background-color: #d32f2f;
-}
-.add-button {
-  margin-bottom: 20px;
 }
 
 h1,
